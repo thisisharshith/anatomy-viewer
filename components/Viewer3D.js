@@ -2,15 +2,15 @@
 
 import dynamic from 'next/dynamic'
 
-const ModelViewer = dynamic(() => import('./ModelViewer'), {
+const Scene3D = dynamic(() => import('./Scene3D'), {
   ssr: false,
   loading: () => (
-    <div style={{ width: '100vw', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+    <div className="w-screen h-screen flex justify-center items-center bg-gray-900 text-white">
       Loading 3D Viewer...
     </div>
   )
 })
 
-export default function Viewer3D() {
-  return <ModelViewer />
+export default function Viewer3D({ selectedSystem }) {
+  return <Scene3D selectedSystem={selectedSystem} />
 }

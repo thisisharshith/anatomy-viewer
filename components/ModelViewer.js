@@ -1,320 +1,260 @@
 'use client'
 
-import { Canvas, useThree } from '@react-three/fiber'
-import { 
-  useGLTF, 
-  OrbitControls, 
-  Environment,
-} from '@react-three/drei'
-import { EffectComposer, Bloom, Selection, Select, Outline } from '@react-three/postprocessing'
-import { Suspense, useEffect, useState, useRef } from 'react'
-import * as THREE from 'three'
-import { Room } from './RoomElements'
+import { useLoader } from '@react-three/fiber'
+import { Html } from '@react-three/drei'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
+import { useState, useEffect } from 'react'
+import { classifyMeshesToSystems } from '../utils/meshClassifier'
+import { getAnatomyInfo } from '../utils/groq'
+import { useRouter } from 'next/navigation'
 
-// Info Panel Component
-function InfoPanel({ selectedPart }) {
-  if (!selectedPart) return null;
-
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        top: '20px',
-        right: '20px',
-        background: 'rgba(0,0,0,0.8)',
-        color: 'white',
-        padding: '20px',
-        borderRadius: '8px',
-        maxWidth: '300px',
-        zIndex: 1000,
-        backdropFilter: 'blur(10px)'
-      }}
-    >
-      <h3 style={{ marginBottom: '10px', color: '#4CAF50' }}>
-        {selectedPart.name}
-      </h3>
-      <div style={{ fontFamily: 'monospace', fontSize: '14px' }}>
-        {Object.entries(selectedPart.userData).map(([key, value]) => (
-          <div key={key} style={{ marginBottom: '5px' }}>
-            <strong style={{ color: '#90CAF9' }}>{key}:</strong>{' '}
-            {value.toString()}
-          </div>
-        ))}
-      </div>
-    </div>
+export default function ModelViewer({ selectedSystem, quizMode = false, highlightedPart = null, setCurrentSystem, onPartSelect }) {
+  const router = useRouter()
+  const [selectedMesh, setSelectedMesh] = useState(null)
+  const [error, setError] = useState(null)
+  const [systemMeshes, setSystemMeshes] = useState(null)
+  const [isClassifying, setIsClassifying] = useState(true)
+  const [partInfo, setPartInfo] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  
+  const gltf = useLoader(
+    GLTFLoader, 
+    '/models/model.glb', 
+    (loader) => {
+      const dracoLoader = new DRACOLoader()
+      dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/')
+      loader.setDRACOLoader(dracoLoader)
+    }
   )
-}
-
-// Animated Model Component
-function Model({ onSelect }) {
-  const { scene } = useGLTF('/models/anatomy.glb')
-  const [hoveredPart, setHoveredPart] = useState(null)
-  const [selectedPart, setSelectedPart] = useState(null)
-  const [displayPart, setDisplayPart] = useState(null)
-  const { camera, scene: threeScene } = useThree()
-  const controlsRef = useRef()
-
+  
   useEffect(() => {
-    scene.traverse((object) => {
-      if (object.isMesh) {
-        object.castShadow = true
-        object.receiveShadow = true
-        if (object.material) {
-          object.material.roughness = 0.7
-          object.material.metalness = 0.3
+    if (gltf && !systemMeshes) {
+      const meshNames = []
+      gltf.scene.traverse((object) => {
+        if (object.isMesh) {
+          meshNames.push(object.name)
+          object.userData.name = object.name
+          object.userData.clickable = true
         }
+      })
+
+      setIsClassifying(true)
+      const classification = classifyMeshesToSystems(meshNames)
+      console.log('Classification:', classification)
+      setSystemMeshes(classification)
+      setIsClassifying(false)
+    }
+  }, [gltf])
+
+  // Function to reset materials
+  const resetMaterials = () => {
+    gltf.scene.traverse((object) => {
+      if (object.isMesh && object.userData.originalMaterial) {
+        object.material = object.userData.originalMaterial.clone()
       }
     })
-  }, [scene])
-
-  const handlePointerOver = (event) => {
-    event.stopPropagation()
-    const part = event.object
-    if (part !== selectedPart && part.material) {
-      document.body.style.cursor = 'pointer'
-      setHoveredPart(part)
-      part.material.emissive = new THREE.Color(0x555555)
-    }
   }
 
-  const handlePointerOut = (event) => {
-    event.stopPropagation()
-    const part = event.object
-    if (part !== selectedPart && part.material) {
-      document.body.style.cursor = 'default'
-      setHoveredPart(null)
-      part.material.emissive = new THREE.Color(0x000000)
+  // Store original materials on load
+  useEffect(() => {
+    if (gltf) {
+      gltf.scene.traverse((object) => {
+        if (object.isMesh) {
+          object.userData.originalMaterial = object.material.clone()
+        }
+      })
     }
-  }
+  }, [gltf])
 
-  const handleClick = (event) => {
-    event.stopPropagation()
-    const clickedPart = event.object
-    console.log('Clicked:', clickedPart.name)
-
-    if (clickedPart === selectedPart) {
-      // Reset
-      if (displayPart) {
-        threeScene.remove(displayPart)
-        displayPart.geometry.dispose()
-        displayPart.material.dispose()
-        setDisplayPart(null)
-      }
-      if (selectedPart.material) {
-        selectedPart.material.transparent = false
-        selectedPart.material.opacity = 1
-      }
-      setSelectedPart(null)
-      onSelect(null)
-      
-      // Reset camera and controls
-      camera.position.set(12, 6, 12)
-      if (controlsRef.current) {
-        controlsRef.current.target.set(0, 0, -4)
-        controlsRef.current.update()
-      }
+  const handleClick = async (event) => {
+    if (quizMode) {
+      event.stopPropagation()
+      const clickedMesh = event.object
+      onPartSelect?.(clickedMesh.name)
     } else {
-      // Remove previous display part
-      if (displayPart) {
-        threeScene.remove(displayPart)
-        displayPart.geometry.dispose()
-        displayPart.material.dispose()
-      }
+      event.stopPropagation()
+      const clickedMesh = event.object
 
-      // Create new copy with enhanced material
-      const newMaterial = clickedPart.material.clone()
-      newMaterial.transparent = false
-      newMaterial.opacity = 1
-      newMaterial.depthTest = true
-      newMaterial.depthWrite = true
-      newMaterial.side = THREE.DoubleSide
-      newMaterial.emissive = new THREE.Color(0x222222)
-      newMaterial.emissiveIntensity = 0.5
+      const belongsToCurrentSystem = selectedSystem === 'complete' 
+        ? true 
+        : systemMeshes[selectedSystem]?.includes(clickedMesh.name)
 
-      const partCopy = new THREE.Mesh(
-        clickedPart.geometry.clone(),
-        newMaterial
-      )
-      
-      // Get world transform
-      clickedPart.updateWorldMatrix(true, false)
-      const worldPosition = new THREE.Vector3()
-      const worldQuaternion = new THREE.Quaternion()
-      const worldScale = new THREE.Vector3()
-      clickedPart.matrixWorld.decompose(worldPosition, worldQuaternion, worldScale)
-      
-      // Set initial transform
-      partCopy.position.copy(worldPosition)
-      partCopy.quaternion.copy(worldQuaternion)
-      partCopy.scale.copy(worldScale)
-      
-      // Move to presentation position above cube
-      const presentationPosition = new THREE.Vector3(-2, -1, -4) // Changed X to -2, Y to 2
-      partCopy.position.copy(presentationPosition)
-      partCopy.scale.multiplyScalar(2.5)
-      partCopy.rotation.set(0, 0, 0) // Face users
-      
-      // Ensure visibility
-      partCopy.renderOrder = 999
-      partCopy.frustumCulled = false
-      
-      threeScene.add(partCopy)
-      setDisplayPart(partCopy)
-      
-      // Update original part
-      if (clickedPart.material) {
-        clickedPart.material.transparent = true
-        clickedPart.material.opacity = 0.5
-      }
-      
-      setSelectedPart(clickedPart)
-      onSelect(clickedPart)
+      if (clickedMesh.userData.clickable && belongsToCurrentSystem) {
+        try {
+          // Highlight clicked mesh
+          const highlightMaterial = clickedMesh.material.clone()
+          highlightMaterial.color.setHex(0x00ff00)
+          highlightMaterial.emissive.setHex(0x336633)
+          highlightMaterial.emissiveIntensity = 0.5
+          clickedMesh.material = highlightMaterial
 
-      // Move camera to focus on the cloned part
-      camera.position.set(2, 5, 4)
-      if (controlsRef.current) {
-        controlsRef.current.target.copy(presentationPosition)
-        controlsRef.current.update()
+          // Store BOTH system and path
+          localStorage.setItem('previousSystem', selectedSystem)
+          localStorage.setItem('previousPath', window.location.pathname + window.location.search)
+
+          setTimeout(() => {
+            resetMaterials()
+            router.push(`/part/${encodeURIComponent(clickedMesh.name)}`)
+          }, 300)
+
+        } catch (error) {
+          console.error('Error handling click:', error)
+          resetMaterials()
+        }
       }
     }
   }
 
-  const handlePointerMissed = () => {
-    if (displayPart) {
-      threeScene.remove(displayPart)
-      displayPart.geometry.dispose()
-      displayPart.material.dispose()
-      setDisplayPart(null)
-    }
-    if (selectedPart && selectedPart.material) {
-      selectedPart.material.transparent = false
-      selectedPart.material.opacity = 1
-    }
-    setSelectedPart(null)
-    setHoveredPart(null)
-    onSelect(null)
-    document.body.style.cursor = 'default'
+  // Reset materials when changing systems
+  useEffect(() => {
+    resetMaterials()
+    setSelectedMesh(null)
+  }, [selectedSystem])
 
-    camera.position.set(12, 6, 12)
-    if (controlsRef.current) {
-      controlsRef.current.target.set(0, 0, -4)
-      controlsRef.current.update()
+  // Reset materials when component unmounts
+  useEffect(() => {
+    return () => {
+      resetMaterials()
     }
+  }, [])
+
+  useEffect(() => {
+    if (gltf && systemMeshes) {
+      gltf.scene.traverse((object) => {
+        if (object.isMesh) {
+          const belongsToSystem = selectedSystem === 'complete' 
+            ? true 
+            : systemMeshes[selectedSystem]?.includes(object.name)
+          
+          object.visible = belongsToSystem
+          object.raycast = belongsToSystem ? object.constructor.prototype.raycast : () => {}
+          
+          if (object.material) {
+            object.material.transparent = false;
+            object.material.opacity = 1.0;
+            object.material.depthWrite = true;
+            object.material.depthTest = true;
+            object.material.needsUpdate = true;
+          }
+        }
+      })
+    }
+  }, [gltf, selectedSystem, systemMeshes])
+
+  const InfoPanel = ({ mesh }) => {
+    if (!mesh) return null;
+
+    return (
+      <Html
+        position={[mesh.position.x, mesh.position.y + 1, mesh.position.z]}
+        transform
+        sprite
+        style={{
+          pointerEvents: 'auto',
+          zIndex: 100,
+        }}
+      >
+        <div className="relative speech-bubble" style={{ width: '300px' }}>
+          <div className="bg-gray-900/90 text-white p-4 rounded-lg backdrop-blur-sm 
+                        border border-gray-700 shadow-xl">
+            <h3 className="font-bold mb-2 text-lg">
+              {mesh.name.replace(/_/g, ' ')}
+            </h3>
+            
+            {isLoading ? (
+              <div className="flex items-center justify-center py-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-200 leading-relaxed">
+                {partInfo || "Loading information..."}
+              </p>
+            )}
+
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedMesh(null);
+                setPartInfo("");
+              }}
+              className="absolute top-2 right-2 text-gray-400 hover:text-white 
+                         w-6 h-6 flex items-center justify-center rounded-full 
+                         hover:bg-gray-800 transition-colors duration-200"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 
+                        w-0 h-0 border-solid border-8 
+                        border-t-gray-900/90 border-x-transparent border-b-transparent">
+          </div>
+        </div>
+      </Html>
+    )
+  }
+
+  if (error) {
+    return <Html center>{error}</Html>
+  }
+
+  if (isClassifying) {
+    return <Html center>Classifying anatomical structures...</Html>
   }
 
   return (
-    <group>
-      <Select>
-        <primitive 
-          object={scene} 
-          onClick={handleClick}
-          onPointerOver={handlePointerOver}
-          onPointerOut={handlePointerOut}
-          onPointerMissed={handlePointerMissed}
-          scale={[1, 1, 1]}
-        />
-      </Select>
-      <OrbitControls 
-        ref={controlsRef}
-        makeDefault
-        enableDamping
-        dampingFactor={0.05}
-        minPolarAngle={Math.PI / 4}
-        maxPolarAngle={Math.PI / 1.8}
-        minDistance={2}
-        maxDistance={25}
-        target={[0, 0, -4]}
+    <group position={[0, 0, 0]} scale={2}>
+      {quizMode && (
+        <Html
+          position={[-2, 1.8, 0]}
+          transform
+        >
+          <div className="bg-gray-900/80 p-4 rounded-lg backdrop-blur-sm border border-gray-700 shadow-xl"
+               style={{
+                 whiteSpace: 'nowrap',
+                 transform: 'scale(0.75)',
+                 minWidth: '300px'
+               }}>
+            {/* Score */}
+            <div className="mb-3">
+              <p className="text-white text-sm">
+                Current Part: {highlightedPart ? highlightedPart.replace(/_/g, ' ') : 'None'}
+              </p>
+            </div>
+
+            {/* Instructions */}
+            <div className="text-gray-300 text-sm mb-3">
+              Click on the highlighted part in the model
+            </div>
+
+            {/* System Filter */}
+            <div className="flex items-center space-x-2">
+              <label className="text-white text-sm">View System:</label>
+              <select
+                value={selectedSystem}
+                onChange={(e) => setCurrentSystem(e.target.value)}
+                className="bg-gray-800 text-white text-sm rounded px-2 py-1 
+                         border border-gray-600 focus:border-blue-500"
+              >
+                {ANATOMY_SYSTEMS.map(system => (
+                  <option key={system.id} value={system.id}>
+                    {system.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </Html>
+      )}
+
+      <primitive 
+        object={gltf.scene}
+        scale={1}
+        position={[0, -2, 0]}
+        onClick={handleClick}
       />
+      {selectedMesh && <InfoPanel mesh={selectedMesh} />}
     </group>
   )
 }
-
-// Main ModelViewer Component
-export default function ModelViewer() {
-  const [selectedPart, setSelectedPart] = useState(null)
-
-  return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-      <Canvas
-        camera={{ 
-          position: [12, 6, 12], 
-          fov: 45,
-          near: 0.1,
-          far: 1000
-        }}
-        shadows={{
-          enabled: true,
-          type: THREE.PCFSoftShadowMap
-        }}
-      >
-        <Suspense fallback={null}>
-          <Environment preset="apartment" intensity={0.8} />
-          <ambientLight intensity={0.4} />
-          
-          <directionalLight
-            position={[5, 10, 5]}
-            intensity={1.5}
-            castShadow
-            shadow-mapSize-width={2048}
-            shadow-mapSize-height={2048}
-            shadow-camera-far={50}
-            shadow-camera-left={-10}
-            shadow-camera-right={10}
-            shadow-camera-top={10}
-            shadow-camera-bottom={-10}
-          />
-          
-          <directionalLight
-            position={[-5, 5, -5]}
-            intensity={0.5}
-            castShadow
-          />
-
-          <Room />
-
-          <group position={[0, -1, -4]} rotation={[0, Math.PI / 4, 0]}>
-            <Model onSelect={setSelectedPart} />
-          </group>
-
-          <EffectComposer>
-            <Selection>
-              <Outline
-                blur
-                visibleEdgeColor={0x000000}
-                hiddenEdgeColor={0x000000}
-                edgeStrength={10}
-                edgeThickness={2}
-              />
-            </Selection>
-            <Bloom 
-              intensity={0.5}
-              luminanceThreshold={0.8}
-              luminanceSmoothing={0.9}
-            />
-          </EffectComposer>
-        </Suspense>
-      </Canvas>
-
-      <InfoPanel selectedPart={selectedPart} />
-
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'rgba(0,0,0,0.8)',
-          color: 'white',
-          padding: '10px 20px',
-          borderRadius: '8px',
-          zIndex: 1000,
-          backdropFilter: 'blur(10px)'
-        }}
-      >
-        Click on any part to highlight and see information
-      </div>
-    </div>
-  )
-}
-
-useGLTF.preload('/models/anatomy.glb')

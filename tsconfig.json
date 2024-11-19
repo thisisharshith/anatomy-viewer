@@ -19,9 +19,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@/config/*": ["./config/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "components/ModelViewer.js", "pages/_app.js", "pages/index.js", "next.config.js"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "components/ModelViewer.js", "pages/_app.js", "pages/index.js", "next.config.js", "app/part/[name]/page.js"],
   "exclude": ["node_modules"]
 }

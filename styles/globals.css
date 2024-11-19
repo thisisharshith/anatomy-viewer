@@ -14,3 +14,176 @@
   left: 10px;
   z-index: 1000;
 }
+
+.model-viewer-container {
+  width: 100%;
+  height: 100vh;
+  position: relative;
+}
+
+/* Mesh Labels and Info Panel */
+.mesh-label {
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+.mesh-info-panel {
+  animation: fadeIn 0.3s ease-out;
+  pointer-events: auto !important;
+  z-index: 1000;
+}
+
+.mesh-info-panel:hover {
+  transform: scale(1.02);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hover effects */
+.hover-highlight {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar for info panel */
+.mesh-info-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.mesh-info-panel::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.mesh-info-panel::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+/* Tooltip animation */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.tooltip {
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+/* Info panel animation */
+@keyframes slideUp {
+  from {
+    transform: translate(-50%, 100%);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+.info-panel {
+  animation: slideUp 0.3s ease-out;
+  background-color: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+}
+
+.info-panel-content {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Make sure HTML overlays are clickable */
+.html-overlay {
+  pointer-events: auto !important;
+}
+
+/* Speech bubble animation */
+@keyframes bubbleAppear {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.speech-bubble {
+  animation: bubbleAppear 0.3s ease-out forwards;
+  pointer-events: auto !important;
+}
+
+/* Ensure the pointer/triangle stays sharp */
+.speech-bubble-pointer {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 8px 8px 0 8px;
+  border-color: rgba(17, 24, 39, 0.9) transparent transparent transparent;
+}
+
+/* Debug styles to ensure visibility */
+.speech-bubble > div {
+  position: relative;
+  z-index: 1000;
+}
+
+.prose {
+  max-width: 65ch;
+  color: inherit;
+}
+
+.prose p {
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+}
+
+.prose strong {
+  color: white;
+  font-weight: 600;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.highlighted-mesh {
+  transition: all 0.3s ease;
+}
+
+@keyframes meshHighlight {
+  0% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.5;
+  }
+}
