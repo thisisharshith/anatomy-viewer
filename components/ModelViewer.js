@@ -1,30 +1,30 @@
-'use client'
+'use client' // Indicates this is a client-side component in Next.js.
 
-import { useLoader } from '@react-three/fiber'
-import { Html } from '@react-three/drei'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
-import { useState, useEffect } from 'react'
-import { classifyMeshesToSystems } from '../utils/meshClassifier'
-import { getAnatomyInfo } from '../utils/groq'
-import { useRouter } from 'next/navigation'
+import { useLoader } from '@react-three/fiber' // Import hook for loading 3D assets in a React environment.
+import { Html } from '@react-three/drei' // Import Html component for rendering 2D HTML content in a 3D scene.
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader' // Import GLTFLoader to load 3D model files in GLTF format.
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader' // Import DRACOLoader to decode compressed meshes.
+import { useState, useEffect } from 'react' // Import React hooks for managing state and side effects.
+import { classifyMeshesToSystems } from '../utils/meshClassifier' // Utility function to classify meshes by anatomical systems.
+import { getAnatomyInfo } from '../utils/groq' // Function to fetch anatomy-related information from a data source.
+import { useRouter } from 'next/navigation' // Import Next.js router for navigation.
 
 export default function ModelViewer({ selectedSystem, quizMode = false, highlightedPart = null, setCurrentSystem, onPartSelect }) {
-  const router = useRouter()
-  const [selectedMesh, setSelectedMesh] = useState(null)
-  const [error, setError] = useState(null)
-  const [systemMeshes, setSystemMeshes] = useState(null)
-  const [isClassifying, setIsClassifying] = useState(true)
-  const [partInfo, setPartInfo] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter() // Use the Next.js router for programmatic navigation.
+  const [selectedMesh, setSelectedMesh] = useState(null) // State for storing the currently selected mesh.
+  const [error, setError] = useState(null) // State for managing any errors during loading or interaction.
+  const [systemMeshes, setSystemMeshes] = useState(null) // State for storing meshes classified by anatomical system.
+  const [isClassifying, setIsClassifying] = useState(true) // State to track whether meshes are being classified.
+  const [partInfo, setPartInfo] = useState("") // State to store information about the selected anatomical part.
+  const [isLoading, setIsLoading] = useState(false) // State to manage loading state when fetching part info.
   
   const gltf = useLoader(
     GLTFLoader, 
     '/models/model.glb', 
     (loader) => {
-      const dracoLoader = new DRACOLoader()
-      dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/')
-      loader.setDRACOLoader(dracoLoader)
+      const dracoLoader = new DRACOLoader() // Initialize DRACOLoader for compressed model support.
+      dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/') // Set the path for DRACO decoder.
+      loader.setDRACOLoader(dracoLoader) // Set DRACOLoader on the loader.
     }
   )
   
@@ -33,21 +33,21 @@ export default function ModelViewer({ selectedSystem, quizMode = false, highligh
       const meshNames = []
       gltf.scene.traverse((object) => {
         if (object.isMesh) {
-          meshNames.push(object.name)
+          meshNames.push(object.name) // Collect the names of mesh objects in the model.
           object.userData.name = object.name
-          object.userData.clickable = true
+          object.userData.clickable = true // Mark meshes as clickable.
         }
       })
 
-      setIsClassifying(true)
-      const classification = classifyMeshesToSystems(meshNames)
+      setIsClassifying(true) // Set classifying state to true while processing meshes.
+      const classification = classifyMeshesToSystems(meshNames) // Classify meshes into anatomical systems.
       console.log('Classification:', classification)
-      setSystemMeshes(classification)
-      setIsClassifying(false)
+      setSystemMeshes(classification) // Store the classification result.
+      setIsClassifying(false) // Set classifying state to false once the process is done.
     }
   }, [gltf])
 
-  // Function to reset materials
+  // Function to reset materials to their original state.
   const resetMaterials = () => {
     gltf.scene.traverse((object) => {
       if (object.isMesh && object.userData.originalMaterial) {
@@ -56,12 +56,12 @@ export default function ModelViewer({ selectedSystem, quizMode = false, highligh
     })
   }
 
-  // Store original materials on load
+  // Store original materials when the model is loaded.
   useEffect(() => {
     if (gltf) {
       gltf.scene.traverse((object) => {
         if (object.isMesh) {
-          object.userData.originalMaterial = object.material.clone()
+          object.userData.originalMaterial = object.material.clone() // Store the original material for each mesh.
         }
       })
     }
@@ -69,30 +69,32 @@ export default function ModelViewer({ selectedSystem, quizMode = false, highligh
 
   const handleClick = async (event) => {
     if (quizMode) {
-      event.stopPropagation()
+      event.stopPropagation() // Prevent event bubbling.
       const clickedMesh = event.object
-      onPartSelect?.(clickedMesh.name)
+      onPartSelect?.(clickedMesh.name) // Trigger part selection callback if in quiz mode.
     } else {
       event.stopPropagation()
       const clickedMesh = event.object
 
+      // Check if the clicked mesh belongs to the currently selected system.
       const belongsToCurrentSystem = selectedSystem === 'complete' 
         ? true 
         : systemMeshes[selectedSystem]?.includes(clickedMesh.name)
 
       if (clickedMesh.userData.clickable && belongsToCurrentSystem) {
         try {
-          // Highlight clicked mesh
+          // Highlight clicked mesh with a green color and emissive glow.
           const highlightMaterial = clickedMesh.material.clone()
           highlightMaterial.color.setHex(0x00ff00)
           highlightMaterial.emissive.setHex(0x336633)
           highlightMaterial.emissiveIntensity = 0.5
           clickedMesh.material = highlightMaterial
 
-          // Store BOTH system and path
+          // Store system and path in localStorage for navigation.
           localStorage.setItem('previousSystem', selectedSystem)
           localStorage.setItem('previousPath', window.location.pathname + window.location.search)
 
+          // Reset materials after a short delay and navigate to part details page.
           setTimeout(() => {
             resetMaterials()
             router.push(`/part/${encodeURIComponent(clickedMesh.name)}`)
@@ -106,13 +108,13 @@ export default function ModelViewer({ selectedSystem, quizMode = false, highligh
     }
   }
 
-  // Reset materials when changing systems
+  // Reset materials and selection when changing systems.
   useEffect(() => {
     resetMaterials()
     setSelectedMesh(null)
   }, [selectedSystem])
 
-  // Reset materials when component unmounts
+  // Cleanup materials when the component unmounts.
   useEffect(() => {
     return () => {
       resetMaterials()
@@ -130,6 +132,7 @@ export default function ModelViewer({ selectedSystem, quizMode = false, highligh
           object.visible = belongsToSystem
           object.raycast = belongsToSystem ? object.constructor.prototype.raycast : () => {}
           
+          // Reset material properties for visibility and interaction.
           if (object.material) {
             object.material.transparent = false;
             object.material.opacity = 1.0;
@@ -174,8 +177,8 @@ export default function ModelViewer({ selectedSystem, quizMode = false, highligh
 
             <button 
               onClick={(e) => {
-                e.stopPropagation();
-                setSelectedMesh(null);
+                e.stopPropagation(); // Prevent click event from propagating to the 3D scene.
+                setSelectedMesh(null); // Reset selected mesh and part info.
                 setPartInfo("");
               }}
               className="absolute top-2 right-2 text-gray-400 hover:text-white 
@@ -196,11 +199,11 @@ export default function ModelViewer({ selectedSystem, quizMode = false, highligh
   }
 
   if (error) {
-    return <Html center>{error}</Html>
+    return <Html center>{error}</Html> // Display error message in the center if an error occurs.
   }
 
   if (isClassifying) {
-    return <Html center>Classifying anatomical structures...</Html>
+    return <Html center>Classifying anatomical structures...</Html> // Display loading message during classification.
   }
 
   return (
@@ -216,14 +219,13 @@ export default function ModelViewer({ selectedSystem, quizMode = false, highligh
                  transform: 'scale(0.75)',
                  minWidth: '300px'
                }}>
-            {/* Score */}
+            {/* Quiz information panel */}
             <div className="mb-3">
               <p className="text-white text-sm">
                 Current Part: {highlightedPart ? highlightedPart.replace(/_/g, ' ') : 'None'}
               </p>
             </div>
 
-            {/* Instructions */}
             <div className="text-gray-300 text-sm mb-3">
               Click on the highlighted part in the model
             </div>
@@ -248,13 +250,14 @@ export default function ModelViewer({ selectedSystem, quizMode = false, highligh
         </Html>
       )}
 
+      {/* 3D model rendering */}
       <primitive 
         object={gltf.scene}
         scale={1}
         position={[0, -2, 0]}
-        onClick={handleClick}
+        onClick={handleClick} // Attach the click handler to interact with the model.
       />
-      {selectedMesh && <InfoPanel mesh={selectedMesh} />}
+      {selectedMesh && <InfoPanel mesh={selectedMesh} />} {/* Show info panel if a mesh is selected. */}
     </group>
   )
 }

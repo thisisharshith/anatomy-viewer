@@ -1,20 +1,23 @@
+// Import Groq SDK for chat-based API interactions
 import Groq from 'groq-sdk';
 
+// Initialize Groq SDK instance with the API key and allow browser usage
 const groq = new Groq({
-  apiKey: process.env.NEXT_PUBLIC_GROQ_API_KEY,
-  dangerouslyAllowBrowser: true
+  apiKey: process.env.NEXT_PUBLIC_GROQ_API_KEY, // Retrieve the API key from environment variables
+  dangerouslyAllowBrowser: true // Allows use of the API in a browser environment
 });
 
-// Define medical professions that warrant more technical questions
+// Define a list of medical professions that require more technical anatomy questions
 const MEDICAL_PROFESSIONS = [
   'doctor', 'nurse', 'medical student', 'physiotherapist',
   'paramedic', 'pharmacist', 'dentist', 'veterinarian',
   'medical researcher', 'biology teacher', 'healthcare'
 ];
 
+// Function to generate an anatomy quiz question based on user's age and profession
 export async function generateQuestion(age, profession = '') {
   try {
-    // Age group determination
+    // Determine the user's age group based on their age
     let ageGroup;
     if (age <= 12) {
       ageGroup = 'children';
@@ -26,15 +29,16 @@ export async function generateQuestion(age, profession = '') {
       ageGroup = 'seniors';
     }
 
-    // Determine medical background
+    // Check if the user has a medical background based on the profession
     const hasMedicalBackground = MEDICAL_PROFESSIONS.some(p => 
       profession.toLowerCase().includes(p.toLowerCase())
     );
 
+    // Generate a question via Groq's chat API, tailoring content to the user's age and background
     const completion = await groq.chat.completions.create({
       messages: [
         {
-          role: "system",
+          role: "system", // Provide system instructions to Groq
           content: `You are an anatomy quiz generator adapting content for:
                    - Age Group: ${ageGroup} (age ${age})
                    - Professional Background: ${profession || 'Not specified'}
@@ -54,19 +58,20 @@ export async function generateQuestion(age, profession = '') {
                    }`
         },
         {
-          role: "user",
+          role: "user", // Request for the question from the user perspective
           content: `Generate one anatomy quiz question for a ${age}-year-old ${profession || 'person'}.`
         }
       ],
-      model: "llama-3.2-11b-text-preview",
-      temperature: 0.6,
-      response_format: { type: "json_object" }
+      model: "llama-3.2-11b-text-preview", // Model used for generating the response
+      temperature: 0.6, // Adjust the creativity of the response
+      response_format: { type: "json_object" } // Request response in a structured JSON format
     });
 
+    // Return the generated question and related information
     return JSON.parse(completion.choices[0]?.message?.content);
   } catch (error) {
     console.error('Error generating question:', error);
-    // Fallback questions based on medical background
+    // Return fallback question if an error occurs, based on the user's medical background
     return hasMedicalBackground ? {
       question: "Which cranial nerve is responsible for taste sensation in the anterior two-thirds of the tongue?",
       hint: "This nerve is part of the facial nerve complex",
@@ -85,8 +90,10 @@ export async function generateQuestion(age, profession = '') {
   }
 }
 
+// Function to check the user's answer and compare it with the correct answer
 export async function checkAnswer(userAnswer, correctAnswer, age) {
   try {
+    // Determine the user's age group for appropriate response
     let ageGroup;
     if (age <= 12) {
       ageGroup = 'children';
@@ -98,10 +105,11 @@ export async function checkAnswer(userAnswer, correctAnswer, age) {
       ageGroup = 'seniors';
     }
 
+    // Use Groq's chat API to compare the answers and provide feedback
     const completion = await groq.chat.completions.create({
       messages: [
         {
-          role: "system",
+          role: "system", // Provide instructions for answer evaluation
           content: `You are an anatomy quiz evaluator for ${ageGroup} (age ${age}).
                    Compare answers considering:
                    - Age-appropriate expectations
@@ -117,20 +125,22 @@ export async function checkAnswer(userAnswer, correctAnswer, age) {
                    }`
         },
         {
-          role: "user",
+          role: "user", // User query asking for answer evaluation
           content: `Compare these answers:
                    Correct: "${correctAnswer}"
                    User's: "${userAnswer}"`
         }
       ],
-      model: "llama-3.2-11b-text-preview",
-      temperature: 0.3,
-      response_format: { type: "json_object" }
+      model: "llama-3.2-11b-text-preview", // Model used for generating the response
+      temperature: 0.3, // Lower temperature for more structured responses
+      response_format: { type: "json_object" } // Request response in a structured JSON format
     });
 
+    // Return the answer evaluation
     return JSON.parse(completion.choices[0]?.message?.content);
   } catch (error) {
     console.error('Error checking answer:', error);
+    // Provide a fallback evaluation in case of an error
     const isCorrect = userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim();
     return {
       isCorrect,

@@ -1,6 +1,6 @@
-"use client";
-
-const SYSTEM_KEYWORDS = {
+// Define keywords for anatomical systems to help classify meshes based on their names
+export const SYSTEM_KEYWORDS = {
+  // Respiratory system terms (e.g., lung, trachea, etc.)
   respiratory: [
     'lung', 'lungs',
     'bronchi', 'bronchus',
@@ -14,7 +14,8 @@ const SYSTEM_KEYWORDS = {
     'breathing',
     'pulmonary'
   ],
-  
+
+  // Digestive system terms (e.g., stomach, intestine, pancreas, etc.)
   digestive: [
     'stomach',
     'intestine',
@@ -33,6 +34,7 @@ const SYSTEM_KEYWORDS = {
     'buccal'
   ],
 
+  // Skeletal system terms (includes bones and skeleton-related terms)
   skeletal: {
     include: [
       '_bone_', 
@@ -76,6 +78,7 @@ const SYSTEM_KEYWORDS = {
     ]
   },
 
+  // Muscular system terms (muscles, tendons, ligaments)
   muscular: [
     'muscle',
     'tendon',
@@ -96,6 +99,7 @@ const SYSTEM_KEYWORDS = {
     'myofascial'
   ],
 
+  // Cardiovascular system terms (heart, arteries, veins)
   cardiovascular: [
     'heart',
     'aorta',
@@ -112,6 +116,7 @@ const SYSTEM_KEYWORDS = {
     'cardiac'
   ],
 
+  // Nervous system terms (brain, spinal cord, nerves)
   nervous: [
     'brain',
     'nerve',
@@ -126,6 +131,7 @@ const SYSTEM_KEYWORDS = {
     'nervous'
   ],
 
+  // Lymphatic system terms (lymph, spleen, thymus)
   lymphatic: [
     'lymph',
     'spleen',
@@ -136,6 +142,7 @@ const SYSTEM_KEYWORDS = {
     'immune'
   ],
 
+  // Integumentary system terms (skin, hair, nails)
   integumentary: [
     'skin',
     'epidermis',
@@ -146,6 +153,7 @@ const SYSTEM_KEYWORDS = {
     'integumentary'
   ],
 
+  // Urinary system terms (kidney, bladder, urethra)
   urinary: [
     'kidney',
     'ureter',
@@ -155,6 +163,7 @@ const SYSTEM_KEYWORDS = {
     'urinary'
   ],
 
+  // Endocrine system terms (glands like thyroid, adrenal, pituitary)
   endocrine: [
     'thyroid',
     'adrenal',
@@ -166,6 +175,7 @@ const SYSTEM_KEYWORDS = {
     'gland'
   ],
 
+  // Sensory system terms (eyes, ears, nose, tongue)
   sensory: [
     'eye',
     'ear',
@@ -179,20 +189,22 @@ const SYSTEM_KEYWORDS = {
   ]
 };
 
+// Function to classify a mesh based on its name by checking against predefined keywords
 function classifyMesh(meshName) {
-  const name = meshName.toLowerCase();
-  const classifications = [];
+  const name = meshName.toLowerCase();  // Convert mesh name to lowercase for case-insensitive comparison
+  const classifications = [];  // Array to store matched systems
   
+  // Iterate through each system and its associated keywords
   Object.entries(SYSTEM_KEYWORDS).forEach(([system, keywords]) => {
-    if (keywords.include && keywords.exclude) {
-      const isExcluded = keywords.exclude.some(term => name.includes(term));
-      if (!isExcluded) {
+    if (keywords.include && keywords.exclude) {  // If include and exclude lists exist for the system
+      const isExcluded = keywords.exclude.some(term => name.includes(term));  // Check for excluded terms
+      if (!isExcluded) {  // If no excluded terms are found, check for included terms
         const isIncluded = keywords.include.some(term => name.includes(term));
         if (isIncluded) {
-          classifications.push(system);
+          classifications.push(system);  // Add the system to the classifications array
         }
       }
-    } else {
+    } else {  // If no exclude list exists, just check for included terms
       const terms = Array.isArray(keywords) ? keywords : keywords.include;
       if (terms.some(term => name.includes(term))) {
         classifications.push(system);
@@ -200,28 +212,32 @@ function classifyMesh(meshName) {
     }
   });
   
+  // Log the classifications or a message if no classifications are found
   if (classifications.length > 0) {
     console.log(`Classified ${meshName} as:`, classifications);
   } else {
     console.log(`Could not classify mesh: ${meshName}`);
   }
   
-  return classifications;
+  return classifications;  // Return the list of classifications
 }
 
+// Function to classify multiple meshes and group them by anatomical system
 export function classifyMeshesToSystems(meshes) {
-  const classification = {};
+  const classification = {};  // Initialize an empty object to hold the classification result
   
+  // Initialize empty arrays for each system in the classification object
   Object.keys(SYSTEM_KEYWORDS).forEach(system => {
     classification[system] = [];
   });
 
+  // For each mesh, classify it and assign it to the corresponding systems
   meshes.forEach(mesh => {
-    const systems = classifyMesh(mesh);
+    const systems = classifyMesh(mesh);  // Get the systems the mesh belongs to
     systems.forEach(system => {
-      classification[system].push(mesh);
+      classification[system].push(mesh);  // Add mesh to the appropriate system's array
     });
   });
 
-  return classification;
+  return classification;  // Return the classification object
 }

@@ -3,14 +3,15 @@
 import { useState, useEffect } from 'react'
 
 export default function TextQuiz({ userInfo, onClose }) {
-  const [question, setQuestion] = useState(null)
-  const [userAnswer, setUserAnswer] = useState('')
-  const [showHint, setShowHint] = useState(false)
-  const [feedback, setFeedback] = useState(null)
-  const [score, setScore] = useState(0)
-  const [totalQuestions, setTotalQuestions] = useState(0)
-  const [isLoading, setIsLoading] = useState(false)
+  const [question, setQuestion] = useState(null) // Current quiz question
+  const [userAnswer, setUserAnswer] = useState('') // User's input answer
+  const [showHint, setShowHint] = useState(false) // Hint visibility toggle
+  const [feedback, setFeedback] = useState(null) // Feedback for user's answer
+  const [score, setScore] = useState(0) // User's current score
+  const [totalQuestions, setTotalQuestions] = useState(0) // Total questions attempted
+  const [isLoading, setIsLoading] = useState(false) // Loading state for question fetch
 
+  // Fetch a new question
   const getNewQuestion = async () => {
     setIsLoading(true)
     try {
@@ -40,6 +41,7 @@ export default function TextQuiz({ userInfo, onClose }) {
     }
   }
 
+  // Check the user's answer
   const checkAnswer = async () => {
     if (!userAnswer.trim()) return
 
@@ -70,6 +72,7 @@ export default function TextQuiz({ userInfo, onClose }) {
     }
   }
 
+  // Fetch the first question on component mount
   useEffect(() => {
     getNewQuestion()
   }, [])

@@ -1,11 +1,11 @@
-'use client'
+'use client' // Indicates this is a client-side component in Next.js.
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { ANATOMY_SYSTEMS } from '@/utils/anatomyConstants'
+import { useState } from 'react' // Import the useState hook for managing component state.
+import Link from 'next/link' // Import the Link component for client-side navigation.
+import { ANATOMY_SYSTEMS } from '@/utils/anatomyConstants' // Import the anatomy systems data.
 
 export default function HomePage() {
-  const [showQuiz, setShowQuiz] = useState(false)
+  const [showQuiz, setShowQuiz] = useState(false) // State variable (currently unused) to toggle quiz visibility.
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
@@ -25,7 +25,7 @@ export default function HomePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-w-[1600px] mx-auto">
         {ANATOMY_SYSTEMS.map((system) => (
           <button
-            key={system.id}
+            key={system.id} // Ensure each button has a unique key based on the anatomy system's ID.
             className="group relative overflow-hidden rounded-lg p-4 bg-gray-800 hover:bg-gray-700 
                      transition-all duration-300 transform hover:scale-105"
             style={{ minHeight: '180px' }}
